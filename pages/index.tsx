@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import Head from "next/head";
 import { css } from "../lib/cssString";
 import type { Case } from "../lib/cases";
 import { computeApiUsage } from "../lib/cases";
@@ -135,6 +136,9 @@ export default function Home() {
 
   return (
     <div style={css(`display:flex; width:100%; height:100vh; min-height:760px; background:${theme.bg}; font-family:${FONT}; color:${theme.textPrimary}; overflow:hidden;`)}>
+      <Head>
+        <title>{`${PAGE_META[page].title} — PainSignal`}</title>
+      </Head>
       <style>{`@keyframes ps-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } body { margin: 0; }`}</style>
 
       <Sidebar
