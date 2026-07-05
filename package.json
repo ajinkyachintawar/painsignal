@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "test:pipeline": "node scripts/test-pipeline.js",
-    "test": "node --test lib/prompts.test.ts"
+    "test": "node --test lib/prompts.test.ts lib/signals.test.ts"
   },
   "dependencies": {
     "next": "14.2.35",

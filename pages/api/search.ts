@@ -15,7 +15,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       numResults: 5,
       type: "neural",
       contents: { text: true },
-      includeDomains: ["reddit.com", "news.ycombinator.com", "github.com"],
+      includeDomains: ["github.com", "news.ycombinator.com"],
     }),
   });
 
@@ -23,5 +23,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(exaRes.status).json({ error: await exaRes.text() });
   }
   const data = await exaRes.json();
-  res.status(200).json(data.results);
+  // Skip closed/resolved GitHub issues — a stale "already fixed" complaint reads
+  // as fake urgency and the real fix is often buried in maintainer comments we don't parse.
+  const openOnly = data.results.filter(
+    (r: { text?: string }) => !/state:\s*closed/i.test(r.text ?? "")
+  );
+  res.status(200).json(openOnly);
 }

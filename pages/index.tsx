@@ -1,77 +1,134 @@
-import { useState } from "react";
-import posts from "../public/demo-posts.json";
+import { useEffect, useState } from "react";
+import { toSignal, type Signal } from "../lib/signals";
 
-type Diagnosis = { product_area: string; root_cause: string; fix: string };
-type Stage = "idle" | "diagnosing" | "scripting" | "rendering" | "done";
+type Diagnosis = {
+  is_real_complaint: boolean;
+  confidence: number;
+  product_area: string;
+  root_cause: string;
+  fix: string;
+};
 
-const STAGES: { key: Stage; label: string }[] = [
-  { key: "diagnosing", label: "Detected" },
-  { key: "scripting", label: "Diagnosed" },
-  { key: "rendering", label: "Scripted" },
-  { key: "done", label: "Video ready" },
-];
+type CaseStatus = "triaging" | "rejected" | "ready" | "video-pending" | "video-ready" | "sent";
 
-function stageIndex(stage: Stage) {
-  return STAGES.findIndex((s) => s.key === stage);
-}
+type Case = {
+  signal: Signal;
+  status: CaseStatus;
+  diagnosis: Diagnosis | null;
+  script: string | null;
+  videoUrl: string | null;
+  error: string | null;
+};
+
+const CONFIDENCE_THRESHOLD = 0.6;
+
+// Pre-verified safety net: always triaged on load so there's something to show
+// even if live search is flaky during judging.
+const SEED_SIGNAL: Signal = {
+  id: "seed-1",
+  source: "Reddit",
+  author: "u/buildingwithapis",
+  text: "Getting charged full credits on ElevenLabs even when the generation glitches out with weird pauses and volume changes. Feels like paying for broken output, no refund path either.",
+  productContext: "ElevenLabs text-to-speech billing",
+};
 
 export default function Home() {
-  const [selected, setSelected] = useState<(typeof posts)[0] | null>(null);
-  const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(null);
-  const [script, setScript] = useState<string | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
-  const [stage, setStage] = useState<Stage>("idle");
-  const [elapsed, setElapsed] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [cases, setCases] = useState<Case[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [query, setQuery] = useState("ElevenLabs voice cloning quality complaint");
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
-  async function runPipeline(post: (typeof posts)[0]) {
-    setSelected(post);
-    setDiagnosis(null);
-    setScript(null);
-    setVideoUrl(null);
-    setSent(false);
-    setError(null);
-    const start = Date.now();
-    const timer = setInterval(() => setElapsed(Date.now() - start), 200);
+  function updateCase(id: string, patch: Partial<Case>) {
+    setCases((prev) => prev.map((c) => (c.signal.id === id ? { ...c, ...patch } : c)));
+  }
+
+  async function triage(signal: Signal) {
+    setCases((prev) => [
+      ...prev,
+      { signal, status: "triaging", diagnosis: null, script: null, videoUrl: null, error: null },
+    ]);
 
     try {
-      setStage("diagnosing");
-      const diagRes = await fetch("/api/diagnose", {
+      const diagnosis = await fetch("/api/diagnose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postText: post.text, productContext: post.productContext }),
+        body: JSON.stringify({ postText: signal.text, productContext: signal.productContext }),
       }).then((r) => r.json());
-      if (diagRes.error) throw new Error(diagRes.error);
-      setDiagnosis(diagRes);
+      if (diagnosis.error) throw new Error(diagnosis.error);
 
-      setStage("scripting");
+      if (!diagnosis.is_real_complaint || diagnosis.confidence < CONFIDENCE_THRESHOLD) {
+        updateCase(signal.id, { status: "rejected", diagnosis });
+        return;
+      }
+
       const scriptRes = await fetch("/api/script", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ diagnosis: diagRes, postText: post.text }),
+        body: JSON.stringify({ diagnosis, postText: signal.text }),
       }).then((r) => r.json());
       if (scriptRes.error) throw new Error(scriptRes.error);
-      setScript(scriptRes.script);
 
-      setStage("rendering");
-      const videoRes = await fetch("/api/video", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scriptText: scriptRes.script }),
-      }).then((r) => r.json());
-      if (videoRes.error) throw new Error(videoRes.error);
-      setVideoUrl(videoRes.videoUrl);
-
-      setStage("done");
+      updateCase(signal.id, { status: "ready", diagnosis, script: scriptRes.script });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Pipeline failed");
-    } finally {
-      clearInterval(timer);
+      updateCase(signal.id, {
+        status: "rejected",
+        error: e instanceof Error ? e.message : "Triage failed",
+      });
     }
   }
 
-  const active = stage !== "idle" ? stageIndex(stage) : -1;
+  useEffect(() => {
+    triage(SEED_SIGNAL);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function runSearch() {
+    setSearching(true);
+    setSearchError(null);
+    try {
+      const results = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      }).then((r) => r.json());
+      if (results.error) throw new Error(results.error);
+      if (!Array.isArray(results) || results.length === 0) {
+        setSearchError("No live signals found for this query — try rephrasing it.");
+        return;
+      }
+      for (const r of results) {
+        triage(toSignal(r, query));
+      }
+    } catch (e) {
+      setSearchError(e instanceof Error ? e.message : "Search failed");
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function generateVideo(id: string) {
+    const target = cases.find((c) => c.signal.id === id);
+    if (!target?.script) return;
+    updateCase(id, { status: "video-pending", error: null });
+    try {
+      const videoRes = await fetch("/api/video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scriptText: target.script }),
+      }).then((r) => r.json());
+      if (videoRes.error) throw new Error(videoRes.error);
+      updateCase(id, { status: "video-ready", videoUrl: videoRes.videoUrl });
+    } catch (e) {
+      updateCase(id, {
+        status: "ready",
+        error: e instanceof Error ? e.message : "Video generation failed",
+      });
+    }
+  }
+
+  const visibleCases = cases.filter((c) => c.status !== "rejected");
+  const expanded = cases.find((c) => c.signal.id === expandedId) ?? null;
 
   return (
     <main className="page">
@@ -81,81 +138,119 @@ export default function Home() {
       </header>
 
       <section>
-        <h2>Detected signals</h2>
+        <h2>Search for signals</h2>
+        <div className="search-row">
+          <input
+            className="search-input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="e.g. ElevenLabs voice cloning quality complaint"
+          />
+          <button className="btn" onClick={runSearch} disabled={searching}>
+            {searching ? "Searching…" : "Search"}
+          </button>
+        </div>
+        {searchError && <div className="error-banner">{searchError}</div>}
+      </section>
+
+      <section>
+        <h2>Signals</h2>
         <div className="cards">
-          {posts.map((p) => (
-            <div key={p.id} className={"card" + (selected?.id === p.id ? " card-active" : "")}>
+          {visibleCases.map((c) => (
+            <div
+              key={c.signal.id}
+              className={"card" + (expandedId === c.signal.id ? " card-active" : "")}
+              onClick={() => setExpandedId(c.signal.id)}
+            >
               <div className="card-meta">
-                <span className="badge">{p.source}</span>
-                <span className="author">{p.author}</span>
+                <span className="badge">{c.signal.source}</span>
+                <span className="author">{c.signal.author}</span>
+                <span className={"status-pill status-" + c.status}>
+                  {statusLabel(c.status)}
+                </span>
+                {c.diagnosis && (
+                  <span className="confidence">
+                    {Math.round(c.diagnosis.confidence * 100)}% confidence
+                  </span>
+                )}
               </div>
-              <p className="card-text">{p.text}</p>
-              <button className="btn" onClick={() => runPipeline(p)}>
-                Run pipeline
-              </button>
+              <p className="card-text">{c.signal.text.slice(0, 220)}…</p>
+              {c.diagnosis && <p className="card-diagnosis">{c.diagnosis.root_cause}</p>}
             </div>
           ))}
         </div>
       </section>
 
-      {selected && (
+      {expanded && (
         <section className="pipeline">
-          <div className="stepper">
-            {STAGES.map((s, i) => (
-              <div key={s.key} className={"step" + (i <= active ? " step-done" : "")}>
-                <div className="dot" />
-                <span>{s.label}</span>
-              </div>
-            ))}
-            {stage !== "idle" && !error && <span className="timer">{(elapsed / 1000).toFixed(1)}s</span>}
-          </div>
-
-          {error && (
-            <div className="error-banner">
-              Pipeline failed: {error}
-              <button className="btn" onClick={() => runPipeline(selected)}>
-                Retry
-              </button>
-            </div>
-          )}
+          {expanded.error && <div className="error-banner">{expanded.error}</div>}
 
           <div className="results">
             <div className="result-col">
               <h3>Original complaint</h3>
-              <p className="quoted">&ldquo;{selected.text}&rdquo;</p>
+              <p className="quoted">&ldquo;{expanded.signal.text}&rdquo;</p>
             </div>
             <div className="result-col">
               <h3>Agent response</h3>
-              {diagnosis && (
+              {expanded.diagnosis && (
                 <>
                   <p className="label">Diagnosis</p>
-                  <p>{diagnosis.root_cause}</p>
+                  <p>{expanded.diagnosis.root_cause}</p>
                   <p className="label">Fix</p>
-                  <p>{diagnosis.fix}</p>
+                  <p>{expanded.diagnosis.fix}</p>
                 </>
               )}
-              {script && (
+              {expanded.script && (
                 <>
                   <p className="label">Script</p>
-                  <p className="quoted">{script}</p>
+                  <p className="quoted">{expanded.script}</p>
                 </>
               )}
-              {videoUrl && (
-                <>
-                  <p className="label">Video</p>
-                  <video src={videoUrl} controls width={360} />
-                </>
-              )}
-              {stage === "done" && !sent && (
-                <button className="btn btn-primary" onClick={() => setSent(true)}>
-                  Approve &amp; send
+
+              {expanded.status === "ready" && (
+                <button className="btn btn-primary" onClick={() => generateVideo(expanded.signal.id)}>
+                  Generate video
                 </button>
               )}
-              {sent && <p className="sent-confirm">Sent as reply to {selected.source}.</p>}
+              {expanded.status === "video-pending" && <p className="label">Rendering video…</p>}
+              {expanded.videoUrl && (
+                <>
+                  <p className="label">Video</p>
+                  <video src={expanded.videoUrl} controls width={360} />
+                </>
+              )}
+              {expanded.status === "video-ready" && (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => updateCase(expanded.signal.id, { status: "sent" })}
+                >
+                  Approve &amp; send (simulated)
+                </button>
+              )}
+              {expanded.status === "sent" && (
+                <p className="sent-confirm">Sent as reply to {expanded.signal.source} (simulated).</p>
+              )}
             </div>
           </div>
         </section>
       )}
     </main>
   );
+}
+
+function statusLabel(status: CaseStatus) {
+  switch (status) {
+    case "triaging":
+      return "Triaging…";
+    case "ready":
+      return "Ready";
+    case "video-pending":
+      return "Rendering…";
+    case "video-ready":
+      return "Video ready";
+    case "sent":
+      return "Sent";
+    default:
+      return status;
+  }
 }

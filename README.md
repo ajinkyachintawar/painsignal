@@ -10,9 +10,10 @@ about the exact technical pain a product solves. That's the highest-intent GTM s
 is, and it's ignored, because nobody's watching for it in real time and nobody can
 personalize a response fast enough to matter before the person churns to a competitor.
 
-PainSignal closes that loop: detect the complaint (Exa) → diagnose the real issue and fix
-(Groq/Llama 3.3 70B) → generate a personalized script (Groq) → deliver it as a short video
-(HeyGen) → a human approves before anything sends.
+PainSignal closes that loop: detect the complaint (Exa) → auto-triage + diagnose the real
+issue and fix (Groq/Llama 3.3 70B) → draft a personalized script (Groq) → generate a short
+video on approval (HeyGen) → a human approves before anything sends (simulated for the demo,
+not a real GitHub post).
 
 ## Team
 
@@ -27,8 +28,9 @@ cp .env.example .env.local   # fill in API keys
 npm run dev
 ```
 
-Visit `localhost:3000`, edit `public/demo-posts.json` with 2–3 real posts found via Exa
-before the demo (don't rely on live search finding a good one on stage).
+Visit `localhost:3000`. A pre-verified fallback signal auto-triages on load (safety net if
+live search hiccups during judging); everything else comes from the live search box, which
+auto-triages every result via Groq before it shows up in the dashboard.
 
 Quick pipeline smoke test without the browser: `npm run test:pipeline`.
 
