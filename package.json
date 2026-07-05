@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "test:pipeline": "node scripts/test-pipeline.js",
-    "test": "node --test lib/prompts.test.ts lib/signals.test.ts"
+    "test": "node --test lib/prompts.test.ts lib/signals.test.ts lib/llm.test.ts"
   },
   "dependencies": {
     "@netlify/blobs": "^10.7.9",
