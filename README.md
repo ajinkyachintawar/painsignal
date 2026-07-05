@@ -11,13 +11,13 @@ is, and it's ignored, because nobody's watching for it in real time and nobody c
 personalize a response fast enough to matter before the person churns to a competitor.
 
 PainSignal closes that loop: detect the complaint (Exa) → diagnose the real issue and fix
-(Qwen) → generate a personalized script (Qwen) → deliver it as a short video (HeyGen +
-ElevenLabs) → a human approves before anything sends.
+(Groq/Llama 3.3 70B) → generate a personalized script (Groq) → deliver it as a short video
+(HeyGen) → a human approves before anything sends.
 
 ## Team
 
-Looking for 1–2 people: someone comfortable wiring APIs (Exa/Qwen/HeyGen/ElevenLabs) and
-someone who can move fast on frontend/demo polish. No fixed roles.
+Looking for 1–2 people: someone comfortable wiring APIs (Exa/Groq/HeyGen) and someone who
+can move fast on frontend/demo polish. No fixed roles.
 
 ## Setup
 

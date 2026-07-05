@@ -36,7 +36,7 @@ async function generateVideo(scriptText: string) {
   return data.video_id as string;
 }
 
-async function pollVideoStatus(videoId: string, timeoutMs = 90_000) {
+async function pollVideoStatus(videoId: string, timeoutMs = 300_000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const statusRes = await fetch(
@@ -52,8 +52,12 @@ async function pollVideoStatus(videoId: string, timeoutMs = 90_000) {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { scriptText } = req.body;
-  const videoId = await generateVideo(scriptText);
-  const videoUrl = await pollVideoStatus(videoId);
-  res.status(200).json({ videoUrl });
+  try {
+    const { scriptText } = req.body;
+    const videoId = await generateVideo(scriptText);
+    const videoUrl = await pollVideoStatus(videoId);
+    res.status(200).json({ videoUrl });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : "video failed" });
+  }
 }

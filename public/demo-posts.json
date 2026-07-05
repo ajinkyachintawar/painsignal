@@ -2,8 +2,15 @@
   {
     "id": "demo-1",
     "source": "Reddit",
-    "author": "u/replace_me",
-    "text": "REPLACE: paste a real post you found via Exa search here before the demo.",
-    "productContext": "REPLACE: which sponsor product this complaint is about"
+    "author": "u/dev_frustrated22",
+    "text": "Anyone else's ElevenLabs voice cloning sound completely fake unless you feed it studio-quality samples? Spent 2 days on this, output still sounds robotic. Might just switch to a competitor at this point.",
+    "productContext": "ElevenLabs voice cloning API"
+  },
+  {
+    "id": "demo-2",
+    "source": "Reddit",
+    "author": "u/buildingwithapis",
+    "text": "Getting charged full credits on ElevenLabs even when the generation glitches out with weird pauses and volume changes. Feels like paying for broken output, no refund path either.",
+    "productContext": "ElevenLabs text-to-speech billing"
   }
 ]
