@@ -267,4 +267,4 @@ changed to any other company with a public GitHub organization.
 
 ## 12. Team
 
-Built solo during the hackathon, using Cursor and Claude Code for development.
+Ajinkya, Charan, Divya using Cursor and Claude Code for development.
