@@ -8,6 +8,8 @@ Built at Cursor Hackathon Dublin (July 2026), using Exa, Groq, HeyGen, and Netli
 
 Repository: github.com/ajinkyachintawar/painsignal
 
+Live app: https://painsignal.netlify.app/
+
 Link to presentation: https://gamma.app/docs/PainSignal-ccilalo8rx1dvny
 
 ---
