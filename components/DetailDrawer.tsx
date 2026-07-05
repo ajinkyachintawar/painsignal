@@ -71,7 +71,20 @@ export function DetailDrawer({
           </div>
 
           <div>
-            <div style={css(sectionLabel(theme))}>Diagnosis</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+              <div style={css(sectionLabel(theme))}>Diagnosis</div>
+              {item.diagnosis && (
+                <span
+                  style={css(
+                    `font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:20px; color:${
+                      item.diagnosis.grounded ? theme.teal : theme.textMuted
+                    }; background:${item.diagnosis.grounded ? theme.tealBg : theme.bgElevated};`
+                  )}
+                >
+                  {item.diagnosis.grounded ? "Grounded in real sources" : "Model's general knowledge"}
+                </span>
+              )}
+            </div>
             <div style={{ ...css(insetBox(theme)), display: "flex", flexDirection: "column", gap: 9 }}>
               {item.diagnosis ? (
                 <>

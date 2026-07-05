@@ -7,6 +7,7 @@ export type Diagnosis = {
   product_area: string;
   root_cause: string;
   fix: string;
+  grounded: boolean;
 };
 
 export type Case = {

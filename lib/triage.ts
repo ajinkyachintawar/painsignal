@@ -1,5 +1,6 @@
 import { callLLM } from "./llm";
 import { buildDiagnosePrompt, buildScriptPrompt } from "./prompts";
+import { fetchGroundingContext } from "./ground";
 import type { Signal } from "./signals";
 import type { Case, Diagnosis } from "./cases";
 
@@ -15,7 +16,12 @@ export async function triageSignal(signal: Signal, threshold: number): Promise<C
     createdAt: Date.now(),
   };
 
-  const diagnosis = (await callLLM(buildDiagnosePrompt(signal.text, signal.productContext))) as Diagnosis;
+  const complaintSummary = signal.text.replace(/^#\s*/, "").slice(0, 150);
+  const grounding = await fetchGroundingContext(signal.productContext, complaintSummary, signal.id);
+
+  const diagnosis = (await callLLM(
+    buildDiagnosePrompt(signal.text, signal.productContext, grounding)
+  )) as Diagnosis;
 
   if (!diagnosis.is_real_complaint || diagnosis.confidence < threshold) {
     return { ...base, status: "rejected", diagnosis, script: null };
