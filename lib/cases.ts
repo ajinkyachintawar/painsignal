@@ -15,9 +15,18 @@ export type Case = {
   diagnosis: Diagnosis | null;
   script: string | null;
   videoUrl: string | null;
+  heygenVideoId: string | null;
   error: string | null;
   createdAt: number;
 };
+
+// Derived from real persisted data (not a client-side click counter), so it reflects
+// background scheduled scans too, not just this browser tab's actions.
+export function computeApiUsage(cases: Case[], scanCount: number) {
+  const llm = cases.reduce((sum, c) => sum + (c.diagnosis ? 1 : 0) + (c.script ? 1 : 0), 0);
+  const video = cases.filter((c) => c.heygenVideoId).length;
+  return { search: scanCount, llm, video };
+}
 
 export function formatTimeAgo(createdAt: number, now: number): string {
   const diffMs = now - createdAt;
