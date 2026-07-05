@@ -17,6 +17,7 @@ export function Sidebar({
   signalCount,
   onNavigate,
   onToggleMode,
+  onLogoClick,
 }: {
   theme: Theme;
   mode: Mode;
@@ -24,6 +25,7 @@ export function Sidebar({
   signalCount: number;
   onNavigate: (page: NavKey) => void;
   onToggleMode: () => void;
+  onLogoClick?: () => void;
 }) {
   const isDark = mode === "dark";
 
@@ -33,7 +35,10 @@ export function Sidebar({
         `width:232px; flex-shrink:0; border-right:1px solid ${theme.border}; display:flex; flex-direction:column; background:${theme.bgSidebar};`
       )}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "20px 18px 16px 18px" }}>
+      <div
+        onClick={onLogoClick}
+        style={{ display: "flex", alignItems: "center", gap: 9, padding: "20px 18px 16px 18px", cursor: onLogoClick ? "pointer" : "default" }}
+      >
         <div
           style={css(
             `width:26px; height:26px; border-radius:7px; background:${theme.accent}; display:flex; align-items:center; justify-content:center; flex-shrink:0;`

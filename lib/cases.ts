@@ -19,6 +19,8 @@ export type Case = {
   heygenVideoId: string | null;
   error: string | null;
   createdAt: number;
+  sentAs: "text" | "video" | null;
+  edited: boolean;
 };
 
 // Derived from real persisted data (not a client-side click counter), so it reflects

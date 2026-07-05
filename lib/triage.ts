@@ -14,6 +14,8 @@ export async function triageSignal(signal: Signal, threshold: number): Promise<C
     heygenVideoId: null,
     error: null,
     createdAt: Date.now(),
+    sentAs: null,
+    edited: false,
   };
 
   const complaintSummary = signal.text.replace(/^#\s*/, "").slice(0, 150);

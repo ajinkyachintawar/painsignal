@@ -7,15 +7,17 @@ import { CaseStatus, FONT, Mode, THEMES } from "../lib/theme";
 import type { ApiStatus } from "../lib/status";
 import type { Settings } from "../lib/store";
 import { Sidebar } from "../components/Sidebar";
+import { LandingPage } from "../components/LandingPage";
 import { SignalsView } from "../components/SignalsView";
 import { AnalyticsView } from "../components/AnalyticsView";
 import { IntegrationsView } from "../components/IntegrationsView";
 import { SettingsView } from "../components/SettingsView";
 import { DetailDrawer } from "../components/DetailDrawer";
 
-type Page = "signals" | "analytics" | "integrations" | "settings";
+type Page = "landing" | "signals" | "analytics" | "integrations" | "settings";
 
 const PAGE_META: Record<Page, { title: string; subtitle: string }> = {
+  landing: { title: "PainSignal", subtitle: "" },
   signals: { title: "Signals", subtitle: "Public complaints, triaged and drafted for reply" },
   analytics: { title: "Analytics", subtitle: "Trends across triage, confidence, and response volume" },
   integrations: { title: "Integrations", subtitle: "Data sources and providers powering PainSignal" },
@@ -27,7 +29,7 @@ const VIDEO_POLL_MS = 3000;
 
 export default function Home() {
   const [mode, setMode] = useState<Mode>("dark");
-  const [page, setPage] = useState<Page>("signals");
+  const [page, setPage] = useState<Page>("landing");
   const [cases, setCases] = useState<Case[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -112,13 +114,32 @@ export default function Home() {
     loadCases();
   }
 
-  async function approveSend(id: string) {
+  async function approveSend(id: string, mode: "text" | "video") {
     await fetch("/api/cases/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, mode }),
     });
     loadCases();
+  }
+
+  async function saveEdit(id: string, patch: { root_cause: string; fix: string; script: string }) {
+    await fetch("/api/cases/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...patch }),
+    });
+    loadCases();
+  }
+
+  async function regenerateScript(id: string, patch: { root_cause: string; fix: string }): Promise<string> {
+    const res = await fetch("/api/cases/regenerate-script", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...patch }),
+    }).then((r) => r.json());
+    if (res.error) throw new Error(res.error);
+    return res.script as string;
   }
 
   async function updateSettings(patch: Partial<Settings>) {
@@ -134,6 +155,24 @@ export default function Home() {
   const visibleCount = cases.filter((c) => c.status !== "rejected").length;
   const apiUsage = computeApiUsage(cases, settings?.scanCount ?? 0);
 
+  if (page === "landing") {
+    return (
+      <div style={{ width: "100%", height: "100vh", fontFamily: FONT, color: theme.textPrimary as string }}>
+        <Head>
+          <title>PainSignal — turn public complaints into shipped fixes</title>
+        </Head>
+        <style>{`body { margin: 0; }`}</style>
+        <LandingPage
+          theme={theme}
+          mode={mode}
+          onToggleMode={() => setMode((m) => (m === "dark" ? "light" : "dark"))}
+          onEnterDashboard={() => setPage("signals")}
+          cases={cases}
+        />
+      </div>
+    );
+  }
+
   return (
     <div style={css(`display:flex; width:100%; height:100vh; min-height:760px; background:${theme.bg}; font-family:${FONT}; color:${theme.textPrimary}; overflow:hidden;`)}>
       <Head>
@@ -148,6 +187,7 @@ export default function Home() {
         signalCount={visibleCount}
         onNavigate={(p) => setPage(p)}
         onToggleMode={() => setMode((m) => (m === "dark" ? "light" : "dark"))}
+        onLogoClick={() => setPage("landing")}
       />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -217,7 +257,9 @@ export default function Home() {
           now={now}
           onClose={() => setSelectedId(null)}
           onGenerateVideo={() => generateVideo(selected.signal.id)}
-          onApproveSend={() => approveSend(selected.signal.id)}
+          onApproveSend={(mode) => approveSend(selected.signal.id, mode)}
+          onSaveEdit={(patch) => saveEdit(selected.signal.id, patch)}
+          onRegenerateScript={(patch) => regenerateScript(selected.signal.id, patch)}
         />
       )}
     </div>
